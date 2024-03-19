@@ -14,6 +14,5 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 link_directories(${MPI_ROOT}/Lib/x64)
 
 add_executable(
-  ${exe_name} Mpip.c
-)
+  ${exe_name} "1Vers.cpp")
 target_link_libraries(${exe_name} msmpi.lib)
