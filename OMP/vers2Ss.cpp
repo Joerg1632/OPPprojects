@@ -2,7 +2,7 @@
 #include <vector>
 #include <cmath>
 #include <omp.h>
-#define N 90000
+#define N 100000
 #define EPS 0.000000000000001
 #define PI 3.14159265358980
 
