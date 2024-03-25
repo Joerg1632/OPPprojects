@@ -116,7 +116,7 @@ int main() {
 
             #pragma omp for reduction(+:ArAr) 
             for (int i = 0; i < N; ++i) {
-                normAx_b += residual[i] * residual[i];
+                ArAr += residual[i] * residual[i];
             }
 
             #pragma omp for
