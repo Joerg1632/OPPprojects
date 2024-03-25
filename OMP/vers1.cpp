@@ -150,10 +150,6 @@ int main() {
             x[i] -= residual[i];
         }
     }
-    
-
-    }
-
 
     double endTime = omp_get_wtime();
     std::cout << endTime - startTime << endl;
