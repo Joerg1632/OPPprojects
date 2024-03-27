@@ -2,7 +2,7 @@
 #include <vector>
 #include <cmath>
 #include <omp.h>
-#define N 100000
+#define N 65000
 #define EPS 0.000000000000001
 #define PI 3.14159265358980
 
@@ -57,6 +57,7 @@ int main() {
 
     vector<vector<double>> A;
     vector<double> b, x;
+    double startTime = omp_get_wtime();
     generateData1(A, b, x);
     // vector<double> u;
     // generateData2(A, u, b, x);
@@ -66,7 +67,6 @@ int main() {
     vector<double> taures(N);
     vector<double> Ar(N);
     vector<double> Ax(N);
-    double startTime = omp_get_wtime();
     #pragma omp parallel
     {
         #pragma omp for reduction(+:normb)
