@@ -2,7 +2,7 @@
 #include <vector>
 #include <cmath>
 #include <omp.h>
-#define N 100000
+#define N 65000
 #define EPS 0.000000000000001
 #define PI 3.14159265358980
 
@@ -57,6 +57,7 @@ int main() {
 
     vector<vector<double>> A;
     vector<double> b, x;
+    double startTime = omp_get_wtime();
     generateData1(A, b, x);
     // vector<double> u;
     // generateData2(A, u, b, x);
@@ -66,9 +67,10 @@ int main() {
     vector<double> taures(N);
     vector<double> Ar(N);
     vector<double> Ax(N);
-    double startTime = omp_get_wtime();
+
     
-    #pragma omp parallel{
+    #pragma omp parallel
+    {
     #pragma omp for reduction(+:normb)
     for (int i = 0; i < N; ++i) {
         normb += b[i] * b[i];
@@ -77,7 +79,8 @@ int main() {
 
     do
     {
-        #pragma omp parallel{
+        #pragma omp parallel
+        {
         #pragma omp for
         for (int i = 0; i < N; ++i) {
             double sum = 0;
@@ -88,68 +91,80 @@ int main() {
         }
         }
 
-        #pragma omp parallel{
+        #pragma omp parallel
+        {
         #pragma omp for
-            for (int i = 0; i < N; ++i) {
-                residual[i] = (Ax[i] - b[i]);
+        for (int i = 0; i < N; ++i) {
+            residual[i] = (Ax[i] - b[i]);
+        }
+        }
+        
+        #pragma omp parallel
+        {
+        #pragma omp for
+        for (int i = 0; i < N; ++i) {
+            double sum = 0;
+            for (int j = 0; j < N; ++j) {
+                sum += A[i][j] * residual[j];
             }
+            Ar[i] = sum;
+        }
         }
         
-        #pragma omp parallel{
-        #pragma omp for
-                for (int i = 0; i < N; ++i) {
-                    double sum = 0;
-                    for (int j = 0; j < N; ++j) {
-                        sum += A[i][j] * residual[j];
-                    }
-                    Ar[i] = sum;
-                }
-        }
-        
-        #pragma omp parallel{
+        #pragma omp parallel
+        {
         #pragma omp for reduction(+:Arr)
                 for (int i = 0; i < N; ++i) {
                     Arr += Ar[i] * residual[i];
                 }
         }
         
-        #pragma omp parallel{
+        #pragma omp parallel
+        {
         #pragma omp for reduction(+:ArAr)
-                for (int i = 0; i < N; ++i) {
-                    ArAr += Ar[i] * Ar[i];
-                }
+        for (int i = 0; i < N; ++i) {
+            ArAr += Ar[i] * Ar[i];
+        }
         }
         
-        #pragma omp parallel{
+        #pragma omp parallel
+        {
         #pragma omp critical
-                {
-                    tau = Arr / ArAr;
-                }
+        {
+            tau = Arr / ArAr;
+        }
         }
         
-        #pragma omp parallel{
+        #pragma omp parallel
+        {
         #pragma omp for reduction(+:normAx_b) 
-                for (int i = 0; i < N; ++i) {
-                    normAx_b += residual[i] * residual[i];
-                }
+        for (int i = 0; i < N; ++i) {
+            normAx_b += residual[i] * residual[i];
+        }
         }
         
-        #pragma omp parallel{
+        #pragma omp parallel
+        {
         #pragma omp for
-                for (int i = 0; i < N; ++i) {
-                    taures[i] = (residual[i] * tau);
-                }
+        for (int i = 0; i < N; ++i) {
+            taures[i] = (residual[i] * tau);
+        }
         }
         
 
     } while (sqrt(normAx_b) / sqrt(normb) < EPS * EPS);
 
-    #pragma omp parallel{
+    #pragma omp parallel
+    {
     #pragma omp for
-        for (int i = 0; i < N; i++) {
-            x[i] -= residual[i];
-        }
+    for (int i = 0; i < N; i++) {
+        x[i] -= residual[i];
     }
+    }
+    
+
+    
+
 
     double endTime = omp_get_wtime();
     std::cout << endTime - startTime << endl;
