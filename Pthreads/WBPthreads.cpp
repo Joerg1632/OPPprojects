@@ -6,7 +6,7 @@
 #include <cmath>
 #include <iostream>
 
-constexpr int NUM_TASKS = 8000;
+constexpr int TASK_COUNT = 8000;
 
 struct Task {
     int id;
@@ -16,59 +16,59 @@ struct Task {
 
 class TaskQueue {
 public:
-    TaskQueue(int capacity) : capacity(capacity), size(0), pop_index(0) {
-        tasks.resize(capacity);
+    TaskQueue(int capacity) : capacity(capacity), count(0), pop_index(0) {
+        data.resize(capacity);
     }
 
     bool isEmpty() const {
-        return size == 0;
+        return count == 0;
     }
 
     bool isFull() const {
-        return size == capacity;
+        return count == capacity;
     }
 
-    bool push(const Task& task) {
+    bool push(const Task &task) {
         if (isFull()) {
             return false;
         }
-        int push_index = (pop_index + size) % capacity;
-        tasks[push_index] = task;
-        size++;
+        int push_index = (pop_index + count) % capacity;
+        data[push_index] = task;
+        count++;
         return true;
     }
 
-    bool pop(Task& task) {
+    bool pop(Task &task) {
         if (isEmpty()) {
             return false;
         }
-        task = tasks[pop_index];
+        task = data[pop_index];
         pop_index = (pop_index + 1) % capacity;
-        size--;
+        count--;
         return true;
     }
 
 private:
-    std::vector<Task> tasks;
+    std::vector<Task> data;
     int capacity;
-    int size;
+    int count;
     int pop_index;
 };
 
-int num_processes;
+int process_count;
 int process_id;
-int initial_task_weight_sum = 0;
-static double global_result = 0;
-TaskQueue* task_queue;
+int proc_sum_weight = 0;
+static double global_res = 0;
+TaskQueue *task_queue;
 
-std::mutex queue_mutex;
+std::mutex mtx;
 
-void workerThread();
+void workerStart();
 
-void initializeTasks();
+void initTasks();
 void executeTasks();
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     int required = MPI_THREAD_MULTIPLE;
     int provided;
     double start_time;
@@ -79,28 +79,28 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
     MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
-    MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
+    MPI_Comm_size(MPI_COMM_WORLD, &process_count);
 
-    task_queue = new TaskQueue(NUM_TASKS);
+    task_queue = new TaskQueue(TASK_COUNT);
 
     // Start worker thread
     start_time = MPI_Wtime();
-    std::thread worker(workerThread);
+    std::thread worker_thread(workerStart);
 
-    worker.join();
+    worker_thread.join();
     end_time = MPI_Wtime();
 
-    double elapsed_time = end_time - start_time;
-    double max_elapsed_time = 0;
-    MPI_Reduce(&elapsed_time, &max_elapsed_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    double time = end_time - start_time;
+    double finalTime = 0;
+    MPI_Reduce(&time, &finalTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     // Print result
     MPI_Barrier(MPI_COMM_WORLD);
 
-    printf("Summary weight %d: %d\n", process_id, initial_task_weight_sum);
+    std::cout << "Summary weight " << process_id << " - start: " << process_start_sum_weight << ", actual: " << proc_sum_weight << "\n";
     MPI_Barrier(MPI_COMM_WORLD);
     if (process_id == 0) {
-        printf("Time: %lf\n", max_elapsed_time);
+        printf("Time: %lf\n", finalTime);
     }
 
     delete task_queue;
@@ -109,18 +109,18 @@ int main(int argc, char* argv[]) {
     return EXIT_SUCCESS;
 }
 
-void initializeTasks() {
-    const int TOTAL_TASK_WEIGHT = 60000000;
-    int min_weight = 2 * TOTAL_TASK_WEIGHT / (NUM_TASKS * (num_processes + 1));
+void initTasks() {
+    const int TOTAL_SUM_WEIGHT = 60000000;
+    int min_weight = 2 * TOTAL_SUM_WEIGHT / (TASK_COUNT * (process_count + 1));
     int task_id = 1;
 
-    for (int i = 0; i < NUM_TASKS; ++i) {
-        Task task = { task_id, process_id, min_weight * (i % num_processes + 1) };
+    for (int i = 0; i < TASK_COUNT; ++i) {
+        Task task = {task_id, process_id, min_weight * (i % process_count + 1)};
 
-        if (i % num_processes == process_id) {
+        if (i % process_count == process_id) {
             task_queue->push(task);
             task_id++;
-            initial_task_weight_sum += task.weight;
+            proc_sum_weight += task.weight;
         }
     }
 }
@@ -129,33 +129,20 @@ void executeTasks() {
     while (true) {
         Task task;
 
-        std::unique_lock<std::mutex> lock(queue_mutex);
         if (task_queue->isEmpty()) {
             break;
         }
         task_queue->pop(task);
-        lock.unlock();
 
         for (int i = 0; i < task.weight; ++i) {
             for (int j = 0; j < 250; ++j) {
-                global_result += std::sqrt(i) * std::sqrt(j);
+                global_res += std::sqrt(i) * std::sqrt(j);
             }
         }
     }
 }
 
-void workerThread() {
-    initializeTasks();
-
-    // Worker start synchronization
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    while (true) {
-        executeTasks();
-
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        if (task_queue->isEmpty()) {
-            break;
-        }
-    }
+void workerStart() {
+    initTasks();
+    executeTasks();
 }
